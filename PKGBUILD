@@ -66,6 +66,16 @@ sha256sums=('fd0fc479f983a8c05313f13e9c36330fe6651cf725396748c40d5cd93fa1e6a4'
             'SKIP'
             '741d473c4db335d97d9e1d9b8be9337090522550804fe6454ba336d21e580fd6'
             'SKIP')
+sha256sums_aarch64=('16b5a6c59aa83319fe5d126604eacd6bbd37de9a4adeccb24392b4d0299c6a71')
+sha256sums_x86_64=('0ed8c43b4ad6c3c3f3affe1317581992ba0eac6697d421a5c6d8210bf1e29ad7')
+b2sums=('2c53f205a940b0f9f68653b92ef46d49f828cbef3cfa8cf94d050c8e6df05c4fcaa4f9b9681b9130b14e3c790d31208eb244d123249a93e35e8e6165f3d858c9'
+        'SKIP'
+        '26230d1a111b24fe9239273acdfacda37c5bf009f861c448ad25392dcca433514246d629a077ce5c66478c7e0f4e5477ce5f95c91d08b3a02cc87bb35b849bcf'
+        'SKIP')
+b2sums_aarch64=('3de166756cbeeeb4afdaec0bc1635322658882812533520254f53b3c98d317e09faa719d9d712674e68926ae2d289090f1bb4393373f2441ddd949bae2418b90')
+b2sums_x86_64=('7082013345352c95303ee87cd78bf5d93ab49ec9f270e6cb803a05cb7f9a67c554bbd260de922d6d44145fd3712b410c13d67c8f76dc2b9f4088be86aeaec835')
+
+# https://www.kernel.org/pub/linux/kernel/v7.x/sha256sums.asc
 
 export KBUILD_BUILD_HOST=archlinux
 export KBUILD_BUILD_USER=$pkgbase
@@ -294,7 +304,8 @@ _package-dtbs() {
   arch=(aarch64)
 
   cd $_srcname
-  local dtbdir="$pkgdir/boot/dtb"
+  local modulesdir="$pkgdir/usr/lib/modules/$(<version)"
+  local dtbdir="$modulesdir/dtb"
 
   echo "Installing device tree binaries..."
   mkdir -p "$dtbdir"
