@@ -1,0 +1,39 @@
+From c16afee80116b84adb93cc11c77b9a9367a0db2c Mon Sep 17 00:00:00 2001
+From: Jun Yan <jerrysteve1101@gmail.com>
+Date: Tue, 29 Sep 2026 13:30:36 +0800
+Subject: [PATCH 13/22] drm/panel-edp: Add BOE NV140FHD-N43 panel
+
+Add the BOE NV140FHD-N43 14.0" 1920x1080 eDP panel found in the
+Sunniwell Z96A.
+
+raw EDID:
+
+00 ff ff ff ff ff ff 00 09 e5 f4 03 00 00 00 00
+13 1c 01 04 a5 1f 11 78 02 3f 62 94 5e 56 94 28
+21 4f 58 00 00 00 01 01 01 01 01 01 01 01 01 01
+01 01 01 01 01 01 c8 36 80 cc 70 38 14 40 30 20
+36 00 35 ae 10 00 00 1a 86 24 80 cc 70 38 14 40
+64 64 44 05 35 ad 10 00 00 1a 00 00 00 fe 00 53
+54 41 52 52 59 0a 20 20 20 20 20 20 00 00 00 fe
+00 4e 56 31 34 30 46 48 44 2d 4e 34 33 0a 00 97
+
+Signed-off-by: Jun Yan <jerrysteve1101@gmail.com>
+---
+ drivers/gpu/drm/panel/panel-edp.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/panel/panel-edp.c b/drivers/gpu/drm/panel/panel-edp.c
+index ac815729aa83..ba981581f3b4 100644
+--- a/drivers/gpu/drm/panel/panel-edp.c
++++ b/drivers/gpu/drm/panel/panel-edp.c
+@@ -1972,6 +1972,7 @@ static const struct edp_panel_entry edp_panels[] = {
+ 	EDP_PANEL_ENTRY('A', 'U', 'O', 0xd497, &delay_200_500_e50, "B120XAN01.0"),
+ 	EDP_PANEL_ENTRY('A', 'U', 'O', 0xf390, &delay_200_500_e50, "B140XTN07.7"),
+ 
++	EDP_PANEL_ENTRY('B', 'O', 'E', 0x03f4, &delay_200_500_e50, "NV140FHD-N43"),
+ 	EDP_PANEL_ENTRY('B', 'O', 'E', 0x0607, &delay_200_500_e200, "Unknown"),
+ 	EDP_PANEL_ENTRY('B', 'O', 'E', 0x0608, &delay_200_500_e50, "NT116WHM-N11"),
+ 	EDP_PANEL_ENTRY('B', 'O', 'E', 0x0609, &delay_200_500_e50_po2e200, "NT116WHM-N21 V4.1"),
+-- 
+2.56.0
+

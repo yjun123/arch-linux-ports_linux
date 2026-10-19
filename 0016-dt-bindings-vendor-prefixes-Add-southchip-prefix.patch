@@ -1,0 +1,27 @@
+From 807b1bc8a5cbfcb8433c03116f7967286f73a6dd Mon Sep 17 00:00:00 2001
+From: Jun Yan <jerrysteve1101@gmail.com>
+Date: Thu, 8 Oct 2026 22:13:43 +0800
+Subject: [PATCH 16/22] dt-bindings: vendor-prefixes: Add southchip prefix
+
+Southchip Semiconductor Technology (Shanghai) Co., Ltd. is the vendor
+of the SC8886S charger IC found on the Sunniwell Z96A board.
+---
+ Documentation/devicetree/bindings/vendor-prefixes.yaml | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/vendor-prefixes.yaml b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+index 3a3781620467..6ad07a545ee8 100644
+--- a/Documentation/devicetree/bindings/vendor-prefixes.yaml
++++ b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+@@ -1569,6 +1569,8 @@ patternProperties:
+     description: Sophgo Technology Inc.
+   "^sourceparts,.*":
+     description: Source Parts Inc.
++  "^southchip,.*":
++    description: Southchip Semiconductor Technology (Shanghai) Co., Ltd.
+   "^spacemit,.*":
+     description: SpacemiT (Hangzhou) Technology Co. Ltd
+   "^spansion,.*":
+-- 
+2.56.0
+

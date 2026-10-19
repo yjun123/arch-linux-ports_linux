@@ -1,0 +1,84 @@
+From a0c9ccf263fc3a4b0c36d592b7c3bff9fc0febd5 Mon Sep 17 00:00:00 2001
+From: Jun Yan <jerrysteve1101@gmail.com>
+Date: Sat, 10 Oct 2026 00:19:19 +0800
+Subject: [PATCH 07/22] arm64: dts: rockchip: rk3568-sunniwell-z96a-pd: add
+ ES7202 PDM audio
+
+Add the Everest ES7202 PDM microphone at I2C3 address 0x30 and the
+headset codec at 0x32, wire them to the PDM controller, and add the
+ES7202 sound card.
+
+Signed-off-by: Jun Yan <jerrysteve1101@gmail.com>
+---
+ .../rockchip/rk3568-sunniwell-z96a-typec.dts  | 41 +++++++++++++++++++
+ 1 file changed, 41 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-sunniwell-z96a-typec.dts b/arch/arm64/boot/dts/rockchip/rk3568-sunniwell-z96a-typec.dts
+index 1cde7dcb049f..534dc512cc30 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3568-sunniwell-z96a-typec.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3568-sunniwell-z96a-typec.dts
+@@ -95,6 +95,19 @@ simple-audio-card,codec {
+ 		};
+ 	};
+ 
++	pdm_sound: pdm-sound {
++		compatible = "simple-audio-card";
++		simple-audio-card,name = "es7202-mic";
++		simple-audio-card,format = "pdm";
++
++		simple-audio-card,cpu {
++			sound-dai = <&pdm>;
++		};
++		simple-audio-card,codec {
++			sound-dai = <&es7202_mic>;
++		};
++	};
++
+ 	sdio_pwrseq: sdio-pwrseq {
+ 		compatible = "mmc-pwrseq-simple";
+ 		clocks = <&rk809 1>;
+@@ -589,6 +602,24 @@ usbc0_sw: endpoint {
+ 
+ &i2c3 {
+ 	status = "okay";
++
++	es7202_mic: codec@30 {
++		compatible = "everest,es7202";
++		reg = <0x30>;
++		#sound-dai-cells = <0>;
++	};
++
++	es7202_aec: codec@31 {
++		compatible = "everest,es7202";
++		reg = <0x31>;
++		#sound-dai-cells = <0>;
++	};
++
++	es7202_headset: codec@32 {
++		compatible = "everest,es7202";
++		reg = <0x32>;
++		#sound-dai-cells = <0>;
++	};
+ };
+ 
+ &i2s0_8ch {
+@@ -605,6 +636,16 @@ &i2s1m0_sdi0
+ 	status = "okay";
+ };
+ 
++&pdm {
++	pinctrl-0 = <&pdmm0_clk1
++		     &pdmm0_sdi1
++		     &pdmm0_sdi2
++		     &pdmm0_sdi3>;
++	/* ES7202 mic is on sdi1 (channel 0), aec is on sdi2 (channel 1), headset on sdi3 (channel 2) */
++	rockchip,path-map = <1 2 3 0>;
++	status = "okay";
++};
++
+ &pinctrl {
+ 	amp {
+ 		spk_amp_en: spk-amp-en {
+-- 
+2.56.0
+

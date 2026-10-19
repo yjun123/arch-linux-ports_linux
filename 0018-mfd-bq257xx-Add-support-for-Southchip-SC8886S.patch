@@ -1,0 +1,94 @@
+From 00714a70f3b69a4502aa865fba1a6a51b3ac4579 Mon Sep 17 00:00:00 2001
+From: Jun Yan <jerrysteve1101@gmail.com>
+Date: Thu, 8 Oct 2026 22:13:44 +0800
+Subject: [PATCH 18/22] mfd: bq257xx: Add support for Southchip SC8886S
+
+The SC8886S is a register-compatible second source for the TI BQ25703A,
+so it shares the bq25703 regmap configuration. It reports a Southchip
+manufacturer string via the charger power supply.
+---
+ drivers/mfd/bq257xx.c                  |  3 +++
+ drivers/power/supply/bq257xx_charger.c | 12 +++++++++++-
+ include/linux/mfd/bq257xx.h            |  1 +
+ 3 files changed, 15 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/mfd/bq257xx.c b/drivers/mfd/bq257xx.c
+index 054342c60b73..8839a4d4ea23 100644
+--- a/drivers/mfd/bq257xx.c
++++ b/drivers/mfd/bq257xx.c
+@@ -92,6 +92,7 @@ static int bq257xx_probe(struct i2c_client *client)
+ 
+ 	switch (ddata->type) {
+ 	case BQ25703A:
++	case SC8886S:
+ 		rcfg = &bq25703_regmap_config;
+ 		break;
+ 	case BQ25792:
+@@ -121,6 +122,7 @@ static int bq257xx_probe(struct i2c_client *client)
+ static const struct i2c_device_id bq257xx_i2c_ids[] = {
+ 	{ "bq25703a", BQ25703A },
+ 	{ "bq25792", BQ25792 },
++	{ "sc8886s", SC8886S },
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(i2c, bq257xx_i2c_ids);
+@@ -128,6 +130,7 @@ MODULE_DEVICE_TABLE(i2c, bq257xx_i2c_ids);
+ static const struct of_device_id bq257xx_of_match[] = {
+ 	{ .compatible = "ti,bq25703a", .data = (void *)BQ25703A },
+ 	{ .compatible = "ti,bq25792", .data = (void *)BQ25792 },
++	{ .compatible = "southchip,sc8886s", .data = (void *)SC8886S },
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(of, bq257xx_of_match);
+diff --git a/drivers/power/supply/bq257xx_charger.c b/drivers/power/supply/bq257xx_charger.c
+index 9c082865e745..0ad2a1852e84 100644
+--- a/drivers/power/supply/bq257xx_charger.c
++++ b/drivers/power/supply/bq257xx_charger.c
+@@ -86,6 +86,7 @@ struct bq257xx_chg {
+ 	u32 vbat_max;
+ 	u32 ichg_max;
+ 	u32 vsys_min;
++	const char *manufacturer;
+ };
+ 
+ /**
+@@ -500,7 +501,7 @@ static int bq257xx_get_charger_property(struct power_supply *psy,
+ 		break;
+ 
+ 	case POWER_SUPPLY_PROP_MANUFACTURER:
+-		val->strval = "Texas Instruments";
++		val->strval = pdata->manufacturer;
+ 		break;
+ 
+ 	case POWER_SUPPLY_PROP_ONLINE:
+@@ -724,6 +725,15 @@ static int bq257xx_charger_probe(struct platform_device *pdev)
+ 	pdata->bq = bq;
+ 	pdata->chip = &bq25703_chip_info;
+ 
++	switch (bq->type) {
++	case SC8886S:
++		pdata->manufacturer = "Southchip Semiconductor";
++		break;
++	default:
++		pdata->manufacturer = "Texas Instruments";
++		break;
++	}
++
+ 	platform_set_drvdata(pdev, pdata);
+ 
+ 	psy_cfg.drv_data = pdata;
+diff --git a/include/linux/mfd/bq257xx.h b/include/linux/mfd/bq257xx.h
+index 4ec72eb920f2..c84856556b80 100644
+--- a/include/linux/mfd/bq257xx.h
++++ b/include/linux/mfd/bq257xx.h
+@@ -507,6 +507,7 @@
+ enum bq257xx_type {
+ 	BQ25703A = 1,
+ 	BQ25792,
++	SC8886S,
+ };
+ 
+ struct bq257xx_device {
+-- 
+2.56.0
+

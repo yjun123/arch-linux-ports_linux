@@ -1,0 +1,218 @@
+From dfa8fe3b0102e90d3c506e55dc42ed223ef4b2e6 Mon Sep 17 00:00:00 2001
+From: Jun Yan <jerrysteve1101@gmail.com>
+Date: Thu, 8 Oct 2026 23:00:51 +0800
+Subject: [PATCH 19/22] power: supply: bq257xx: add fuel gauge driver
+
+The BQ25703A (and the register-compatible SC8886S) integrates an ADC
+that can measure the battery voltage and current. Register a fuel gauge
+power supply backed by the generic adc-battery-helper, which derives the
+state of charge from the OCV table of the monitored battery and tracks
+the charge status from the measured current.
+
+List the fuel gauge in the charger's supplied_to so the helper is
+notified when the adapter state changes, and select the helper from
+FUEL_GAUGE_BQ257XX.
+
+Add the fuel gauge as a third MFD cell of the bq257xx device so that it
+shares the parent regmap, following the same pattern as the charger and
+regulator cells.
+---
+ drivers/mfd/bq257xx.c                     |   1 +
+ drivers/power/supply/Kconfig              |  12 +++
+ drivers/power/supply/Makefile             |   1 +
+ drivers/power/supply/bq257xx_charger.c    |   6 ++
+ drivers/power/supply/bq257xx_fuel_gauge.c | 111 ++++++++++++++++++++++
+ 5 files changed, 131 insertions(+)
+ create mode 100644 drivers/power/supply/bq257xx_fuel_gauge.c
+
+diff --git a/drivers/mfd/bq257xx.c b/drivers/mfd/bq257xx.c
+index 8839a4d4ea23..0026b7e514be 100644
+--- a/drivers/mfd/bq257xx.c
++++ b/drivers/mfd/bq257xx.c
+@@ -75,6 +75,7 @@ static const struct regmap_config bq25792_regmap_config = {
+ static const struct mfd_cell cells[] = {
+ 	MFD_CELL_NAME("bq257xx-regulator"),
+ 	MFD_CELL_NAME("bq257xx-charger"),
++	MFD_CELL_NAME("bq257xx-fgu"),
+ };
+ 
+ static int bq257xx_probe(struct i2c_client *client)
+diff --git a/drivers/power/supply/Kconfig b/drivers/power/supply/Kconfig
+index f0ede1cecb6a..b740a7ef02a6 100644
+--- a/drivers/power/supply/Kconfig
++++ b/drivers/power/supply/Kconfig
+@@ -822,6 +822,18 @@ config CHARGER_BQ257XX
+ 	  Say Y to enable support for the TI BQ257XX family of battery
+ 	  charging integrated circuits.
+ 
++config FUEL_GAUGE_BQ257XX
++	tristate "TI BQ257XX battery fuel gauge"
++	depends on MFD_BQ257XX
++	select ADC_BATTERY_HELPER
++	help
++	  Say Y to enable support for the battery fuel gauge in the TI
++	  BQ257XX family of charging integrated circuits.
++
++	  This driver measures the battery voltage and current through the
++	  integrated ADC and reports the state of charge using the OCV
++	  table of the monitored battery.
++
+ config CHARGER_BQ25890
+ 	tristate "TI BQ25890 battery charger driver"
+ 	depends on I2C
+diff --git a/drivers/power/supply/Makefile b/drivers/power/supply/Makefile
+index 31fe4a145929..9cdd47ca27a4 100644
+--- a/drivers/power/supply/Makefile
++++ b/drivers/power/supply/Makefile
+@@ -103,6 +103,7 @@ obj-$(CONFIG_CHARGER_BQ24257)	+= bq24257_charger.o
+ obj-$(CONFIG_CHARGER_BQ24735)	+= bq24735-charger.o
+ obj-$(CONFIG_CHARGER_BQ2515X)	+= bq2515x_charger.o
+ obj-$(CONFIG_CHARGER_BQ257XX)	+= bq257xx_charger.o
++obj-$(CONFIG_FUEL_GAUGE_BQ257XX)	+= bq257xx_fuel_gauge.o
+ obj-$(CONFIG_CHARGER_BQ25890)	+= bq25890_charger.o
+ obj-$(CONFIG_CHARGER_BQ25980)	+= bq25980_charger.o
+ obj-$(CONFIG_CHARGER_BQ256XX)	+= bq256xx_charger.o
+diff --git a/drivers/power/supply/bq257xx_charger.c b/drivers/power/supply/bq257xx_charger.c
+index 0ad2a1852e84..302888d36f95 100644
+--- a/drivers/power/supply/bq257xx_charger.c
++++ b/drivers/power/supply/bq257xx_charger.c
+@@ -631,6 +631,10 @@ static irqreturn_t bq257xx_irq_handler_thread(int irq, void *private)
+ 	return IRQ_HANDLED;
+ }
+ 
++static char *bq257xx_supplied_to[] = {
++	"bq257xx-fgu",
++};
++
+ static const struct power_supply_desc bq257xx_power_supply_desc = {
+ 	.name = "bq257xx-charger",
+ 	.type = POWER_SUPPLY_TYPE_USB,
+@@ -738,6 +742,8 @@ static int bq257xx_charger_probe(struct platform_device *pdev)
+ 
+ 	psy_cfg.drv_data = pdata;
+ 	psy_cfg.fwnode = dev_fwnode(dev);
++	psy_cfg.supplied_to = bq257xx_supplied_to;
++	psy_cfg.num_supplicants = ARRAY_SIZE(bq257xx_supplied_to);
+ 
+ 	pdata->charger = devm_power_supply_register(dev,
+ 						    &bq257xx_power_supply_desc,
+diff --git a/drivers/power/supply/bq257xx_fuel_gauge.c b/drivers/power/supply/bq257xx_fuel_gauge.c
+new file mode 100644
+index 000000000000..3c45b6c4bfd1
+--- /dev/null
++++ b/drivers/power/supply/bq257xx_fuel_gauge.c
+@@ -0,0 +1,111 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * BQ257XX Fuel Gauge Driver
++ * Copyright (C) 2026 Jun Yan <jerrysteve1101@gmail.com>
++ */
++
++#include <linux/bitfield.h>
++#include <linux/mfd/bq257xx.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/power_supply.h>
++#include <linux/property.h>
++#include <linux/regmap.h>
++
++#include "adc-battery-helper.h"
++
++struct bq257xx_fg {
++	/* Must be the first member, see adc-battery-helper.h */
++	struct adc_battery_helper helper;
++	struct regmap *regmap;
++	struct power_supply *psy;
++};
++
++static int bq257xx_fg_get_voltage_and_current_now(struct power_supply *psy,
++						  int *volt_uv, int *curr_ua)
++{
++	struct bq257xx_fg *fg = power_supply_get_drvdata(psy);
++	unsigned int reg, status;
++	int ret;
++
++	ret = regmap_read(fg->regmap, BQ25703_ADCVSYSVBAT, &reg);
++	if (ret)
++		return ret;
++
++	*volt_uv = FIELD_GET(BQ25703_ADCVBAT_MASK, reg) *
++		   BQ25703_ADCVSYSVBAT_STEP + BQ25703_ADCVSYSVBAT_OFFSET_UV;
++
++	ret = regmap_read(fg->regmap, BQ25703_CHARGER_STATUS, &status);
++	if (ret)
++		return ret;
++
++	ret = regmap_read(fg->regmap, BQ25703_ADCIBAT_CHG, &reg);
++	if (ret)
++		return ret;
++
++	/*
++	 * Report the battery current with the charge direction sign: positive
++	 * while charging (adapter present) and negative while discharging, as
++	 * expected by the adc-battery-helper.
++	 */
++	if (status & BQ25703_STS_AC_STAT)
++		*curr_ua = FIELD_GET(BQ25703_ADCIBAT_CHG_MASK, reg) *
++			   BQ25703_ADCIBAT_CHG_STEP_UA;
++	else
++		*curr_ua = -(FIELD_GET(BQ25703_ADCIBAT_DISCHG_MASK, reg) *
++			     BQ25703_ADCIBAT_DIS_STEP_UA);
++
++	return 0;
++}
++
++static const struct power_supply_desc bq257xx_fg_desc = {
++	.name = "bq257xx-fgu",
++	.type = POWER_SUPPLY_TYPE_BATTERY,
++	.get_property = adc_battery_helper_get_property,
++	.external_power_changed = adc_battery_helper_external_power_changed,
++	.properties = adc_battery_helper_properties,
++	.num_properties = ADC_HELPER_NUM_PROPERTIES,
++};
++
++static int bq257xx_fg_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct bq257xx_fg *fg;
++	struct power_supply_config cfg = {};
++
++	device_set_of_node_from_dev(dev, dev->parent);
++
++	fg = devm_kzalloc(dev, sizeof(*fg), GFP_KERNEL);
++	if (!fg)
++		return -ENOMEM;
++
++	fg->regmap = dev_get_regmap(dev->parent, NULL);
++	if (!fg->regmap)
++		return dev_err_probe(dev, -ENODEV, "Failed to get regmap\n");
++
++	platform_set_drvdata(pdev, fg);
++
++	cfg.drv_data = fg;
++	cfg.fwnode = dev_fwnode(dev);
++	fg->psy = devm_power_supply_register(dev, &bq257xx_fg_desc, &cfg);
++	if (IS_ERR(fg->psy))
++		return dev_err_probe(dev, PTR_ERR(fg->psy),
++				     "Failed to register power supply\n");
++
++	return adc_battery_helper_init(&fg->helper, fg->psy,
++				       bq257xx_fg_get_voltage_and_current_now,
++				       NULL);
++}
++
++static struct platform_driver bq257xx_fg_driver = {
++	.driver = {
++		.name = "bq257xx-fgu",
++	},
++	.probe = bq257xx_fg_probe,
++};
++module_platform_driver(bq257xx_fg_driver);
++
++MODULE_DESCRIPTION("bq257xx fuel gauge driver");
++MODULE_AUTHOR("Jun Yan <jerrysteve1101@gmail.com>");
++MODULE_LICENSE("GPL");
++MODULE_ALIAS("platform:bq257xx-fgu");
+-- 
+2.56.0
+

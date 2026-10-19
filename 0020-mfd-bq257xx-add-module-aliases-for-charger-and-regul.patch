@@ -1,0 +1,38 @@
+From 2fcbd793f46bf38a9449ddcd5515327c2fe451c7 Mon Sep 17 00:00:00 2001
+From: Jun Yan <jerrysteve1101@gmail.com>
+Date: Sat, 10 Oct 2026 21:15:41 +0800
+Subject: [PATCH 20/22] mfd: bq257xx: add module aliases for charger and
+ regulator
+
+The bq257xx MFD core registers the charger and regulator sub-devices as
+platform devices using MFD_CELL_NAME(), so udev reports a
+"platform:<name>" modalias for each. Add matching MODULE_ALIAS() entries
+so the sub-drivers are auto-loaded when the parent MFD device probes.
+
+Signed-off-by: Jun Yan <jerrysteve1101@gmail.com>
+---
+ drivers/power/supply/bq257xx_charger.c | 1 +
+ drivers/regulator/bq257xx-regulator.c  | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/drivers/power/supply/bq257xx_charger.c b/drivers/power/supply/bq257xx_charger.c
+index 302888d36f95..3eeddee9d7b2 100644
+--- a/drivers/power/supply/bq257xx_charger.c
++++ b/drivers/power/supply/bq257xx_charger.c
+@@ -795,3 +795,4 @@ module_platform_driver(bq257xx_chg_driver);
+ MODULE_DESCRIPTION("bq257xx charger driver");
+ MODULE_AUTHOR("Chris Morgan <macromorgan@hotmail.com>");
+ MODULE_LICENSE("GPL");
++MODULE_ALIAS("platform:bq257xx-charger");
+diff --git a/drivers/regulator/bq257xx-regulator.c b/drivers/regulator/bq257xx-regulator.c
+index 577b277efd7f..ff4a859f3c03 100644
+--- a/drivers/regulator/bq257xx-regulator.c
++++ b/drivers/regulator/bq257xx-regulator.c
+@@ -183,3 +183,4 @@ module_platform_driver(bq257xx_reg_driver);
+ MODULE_DESCRIPTION("bq257xx regulator driver");
+ MODULE_AUTHOR("Chris Morgan <macromorgan@hotmail.com>");
+ MODULE_LICENSE("GPL");
++MODULE_ALIAS("platform:bq257xx-regulator");
+-- 
+2.56.0
+

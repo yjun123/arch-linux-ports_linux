@@ -1,0 +1,72 @@
+From da94fb85ae0a0a33eadf767fe07b59d18fd0c1ff Mon Sep 17 00:00:00 2001
+From: Jun Yan <jerrysteve1101@gmail.com>
+Date: Tue, 29 Sep 2026 14:17:57 +0800
+Subject: [PATCH 10/22] drm/bridge: analogix_dp: add RK3568 eDP device type
+
+Add RK3568_EDP to the device type enum and reuse the RK3288/RK3399
+link configuration (2.7 Gbps, 4 lanes) for it. Also pass the lane
+count to phy_configure() in the link-bandwidth and link-training
+paths, which the RK3568 Naneng eDP PHY driver requires.
+
+Signed-off-by: Jun Yan <jerrysteve1101@gmail.com>
+---
+ drivers/gpu/drm/bridge/analogix/analogix_dp_core.c | 1 +
+ drivers/gpu/drm/bridge/analogix/analogix_dp_reg.c  | 2 ++
+ include/drm/bridge/analogix_dp.h                   | 4 +++-
+ 3 files changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/bridge/analogix/analogix_dp_core.c b/drivers/gpu/drm/bridge/analogix/analogix_dp_core.c
+index 5006ac181b2d..07a900222d1a 100644
+--- a/drivers/gpu/drm/bridge/analogix/analogix_dp_core.c
++++ b/drivers/gpu/drm/bridge/analogix/analogix_dp_core.c
+@@ -1246,6 +1246,7 @@ static int analogix_dp_dt_parse_pdata(struct analogix_dp_device *dp)
+ 	switch (dp->plat_data->dev_type) {
+ 	case RK3288_DP:
+ 	case RK3399_EDP:
++	case RK3568_EDP:
+ 		/*
+ 		 * Like Rk3288 DisplayPort TRM indicate that "Main link
+ 		 * containing 4 physical lanes of 2.7/1.62 Gbps/lane".
+diff --git a/drivers/gpu/drm/bridge/analogix/analogix_dp_reg.c b/drivers/gpu/drm/bridge/analogix/analogix_dp_reg.c
+index 38fd8d5014d2..757de0224e96 100644
+--- a/drivers/gpu/drm/bridge/analogix/analogix_dp_reg.c
++++ b/drivers/gpu/drm/bridge/analogix/analogix_dp_reg.c
+@@ -526,6 +526,7 @@ void analogix_dp_set_link_bandwidth(struct analogix_dp_device *dp, u32 bwtype)
+ 		phy_cfg.dp.link_rate =
+ 			drm_dp_bw_code_to_link_rate(dp->link_train.link_rate) / 100;
+ 		phy_cfg.dp.set_rate = true;
++		phy_cfg.dp.lanes = dp->link_train.lane_count;
+ 		ret = phy_configure(dp->phy, &phy_cfg);
+ 		if (ret && ret != -EOPNOTSUPP) {
+ 			dev_err(dp->dev, "%s: phy_configure() failed: %d\n", __func__, ret);
+@@ -596,6 +597,7 @@ void analogix_dp_set_lane_link_training(struct analogix_dp_device *dp)
+ 		}
+ 
+ 		phy_cfg.dp.set_voltages = true;
++		phy_cfg.dp.lanes = dp->link_train.lane_count;
+ 		ret = phy_configure(dp->phy, &phy_cfg);
+ 		if (ret && ret != -EOPNOTSUPP) {
+ 			dev_err(dp->dev, "%s: phy_configure() failed: %d\n", __func__, ret);
+diff --git a/include/drm/bridge/analogix_dp.h b/include/drm/bridge/analogix_dp.h
+index 854af692229b..f761fad363ce 100644
+--- a/include/drm/bridge/analogix_dp.h
++++ b/include/drm/bridge/analogix_dp.h
+@@ -16,12 +16,14 @@ enum analogix_dp_devtype {
+ 	EXYNOS_DP,
+ 	RK3288_DP,
+ 	RK3399_EDP,
++	RK3568_EDP,
+ 	RK3588_EDP,
+ };
+ 
+ static inline bool is_rockchip(enum analogix_dp_devtype type)
+ {
+-	return type == RK3288_DP || type == RK3399_EDP || type == RK3588_EDP;
++	return type == RK3288_DP || type == RK3399_EDP ||
++	       type == RK3568_EDP || type == RK3588_EDP;
+ }
+ 
+ struct analogix_dp_plat_data {
+-- 
+2.56.0
+
